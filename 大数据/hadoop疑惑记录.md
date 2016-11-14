@@ -1,0 +1,3 @@
+### hadoop疑惑记录
+
+1.接触hadoop,从hdfs,yarn这样一步一步接触hadoop生态系统中的各个子项目之后,从hdfs存储大数据文件的基本功能产生的一个疑问: 当hadoop应用集成了Hbase,hive等上层项目架构之后, hdfs还是单纯的在开始接触时的存储大数据文件吗?还是说hdfs作为hadoop的底层存储,实际是存储的Hbase和hive等上层应用的数据?
