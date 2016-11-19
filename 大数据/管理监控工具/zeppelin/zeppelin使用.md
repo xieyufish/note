@@ -8,7 +8,9 @@
 
 #### 1.1 下载
 
-​	我们可以从[Zeppelin官网](http://zeppelin.apache.org/)找到Zeppelin的下载入口，如下：![1](images\1.png)
+​	我们可以从[Zeppelin官网](http://zeppelin.apache.org/)找到Zeppelin的下载入口，如下：
+
+![1](images\1.png)
 
 点击下拉菜单的选项进入下载页面：![2](images\2.png)
 
@@ -51,7 +53,9 @@
 
 #### 3.2 Spark demo
 
-​	在Zeppelin上要运行数据分析代码，都是通过note这样一个单元来执行的，在创建spark demo之前，我们新建一个note，创建方式如下：![5](images\5.png)
+​	在Zeppelin上要运行数据分析代码，都是通过note这样一个单元来执行的，在创建spark demo之前，我们新建一个note，创建方式如下：
+
+![5](images\5.png)
 
 
 
@@ -63,13 +67,17 @@
 
 ![9](images\9.png)				在代码中的sc变量即为：SparkContext的一个实例，这是由Zeppelin提供的内置实例，跟spark-shell中的sc变量一样，Zeppelin提供的其他变量有：SQLContext的实例sqlContext，ZeppelinContext的实例z。
 
-​	在上述代码运行成功之后，也就是在Spark中成功的创建了表：bank，接下来我们可以针对bank表做一些数据分析的操作，如下：![10](images\10.png)
+​	在上述代码运行成功之后，也就是在Spark中成功的创建了表：bank，接下来我们可以针对bank表做一些数据分析的操作，如下：
+
+![10](images\10.png)
 
 ![11](images\11.png)
 
 #### 3.3 问题
 
-​	在运行demo时遇到了一个问题，当编写好scala代码执行时，报了一个错误，说是jackson的版本问题，问题截图如下： ![8](images\8.png)
+​	在运行demo时遇到了一个问题，当编写好scala代码执行时，报了一个错误，说是jackson的版本问题，问题截图如下： 
+
+![8](images\8.png)
 
 这是因为Zeppelin所使用的jackson jar为2.5.3，跟spark所使用的jar包不兼容匹配造成的，这个问题可以通过将spark的jars目录下对应的jackson的jar包拷贝到zeppelin的lib目录下，并删除zeppelin的lib中原有得jackson jar包即可。
 
