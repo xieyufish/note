@@ -57,7 +57,7 @@ public class WordCount {
 	
   /**
   * 这里Mapper类的实现类, 不必指定为public的作用域也是可以的,但必须指定为static的,如果没有指定为static
-  * 那么在运行过程中,会报NoSuchMethodException(找不到Mapper的<init>这个方法,这是属于jvm中类加载的一个  初始化方法)
+  * 那么在运行过程中,会报NoSuchMethodException(找不到Mapper的<init>这个方法,这是属于jvm中类加载的一个初始化方法)
   * Mapper<K1,V1,K2,V2>中4个泛型参数的说明: K1,V1指定了输入map任务的记录的格式;K2,V2指定了你想要map任务的输出格式,这个输出格式要和job里的设置一致,否则会报类型转换异常
   */
 	public static class WordMapper extends Mapper<LongWritable, Text, Text, IntWritable> {

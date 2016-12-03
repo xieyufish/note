@@ -298,7 +298,7 @@ public class WebLog implements WritableComparable<WebLog> {
 
 **注意：**在遇到这个异常之前，也遇到过相同提示错误的异常，那次是因为包引用错误导致的这个问题发生，所以这次我以为也是同样的原因引起的这个问题，所以把思路定位在了查找包引用方面，导致耗费了脑力和时间，最终通过搜索解决的这个问题。
 
-### 4. 有Iterator.hasNext()引发的死循环
+### 4. 由Iterator.hasNext()引发的死循环
 
 **问题描述：**在做一个自定义Partitioner的过程中，在集群上跑任务时，任务指定到reduce这一步是，任务不再执行下去，一直定在哪里，情况如下：
 
