@@ -1,0 +1,9 @@
+## Bean的生命周期
+
+bean的创建和销毁：在一个bean被创建和销毁的时候，要执行某些资源加载或者说是资源释放的操作，此时就有必要实现一些初始化和销毁的方法来执行这些操作，这些初始化操作都是发生在属性值被注入之后才开始执行的spring提供了三种初始化方式来初始化一个bean：
+
+1. spring提供的初始化接口---InitializingBean提供了bean的初始化执行方法，只要一个bean实现了了该接口，那么spring容器就会自动调用执行实现的接口方法afterPropertiesSet()    spring提供的销毁接口-----DisposableBean提供了bean销毁时执行的方法，只用bean实现了该接口，那么在一个bean被spring销毁的时候就会自动调用该接口的实现方法destroy()
+2. 在spring配置文件中的bean配置元素中，指定init-method和destroy-method属性值来指定bean的特定的初始化和销毁方法
+3. 在spring配置文件中的根元素beans中，指定一个全局默认的default-init-method和default-destroy-method两个属性值，此两个属性值就代表bean中的初始化和销毁的方法名，   如果bean没有实现这两个方法，spring容器也不会报错，此初始化方法的优先级是最低的，当第二种方式存在时可被第二种方式覆盖。
+
+当三种初始化方式并存时，第一种初始化方式先被执行，接着第二种方式执行，第三种初始化方式将不被执行当1、2或者1、3方式并存时，第一种初始化方式先被执行，接口其他方式被执行，2、3并存时，第三种方式不被执行

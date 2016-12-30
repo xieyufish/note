@@ -1,0 +1,3 @@
+## java源码解析-LinkedHashSet类
+
+LinkedHashSet是内部通过LinkedHashMap实现的,详细请参考我的LinkedHashMap讲解
