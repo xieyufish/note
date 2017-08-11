@@ -152,7 +152,7 @@ JavaPairRDD<String, Integer> counts = pairs.reduceByKey((a, b) -> a + b);
 
 ​	在Spark中的某些特定操作会触发一个叫做shuffle的事件。Shuffle是spark提供的一种重新分布在不同partitions上数据的机制。显然这个机制涉及了在不同的executors或者machines之间拷贝数据，这使得shuffle成为一个即昂贵又复杂的操作。
 
-​	为了理解什么是**Shuffle操作**，我们以**reduceByKey**操作为例来进行讲解。如我们在附录中所记录的，reduceByKey(function)操作会通过它提供的function函数来计算RDD中所有相同key的聚合结果(如下图)，什么样的结果取决去function的具体实现。
+​	为了理解什么是**Shuffle操作**，我们以**reduceByKey**操作为例来进行讲解。如我们在附录中所记录的，reduceByKey(function)操作会通过它提供的function函数来计算RDD中所有相同key的聚合结果(如下图)，什么样的结果取决于function的具体实现。
 
 ![spark_56](images\spark_56.png)
 
