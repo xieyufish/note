@@ -152,17 +152,17 @@ JavaPairRDD<String, Integer> counts = pairs.reduceByKey((a, b) -> a + b);
 
 ​	在Spark中的某些特定操作会触发一个叫做shuffle的事件。Shuffle是spark提供的一种重新分布在不同partitions上数据的机制。显然这个机制涉及了在不同的executors或者machines之间拷贝数据，这使得shuffle成为一个即昂贵又复杂的操作。
 
-​	为了理解什么事**Shuffle操作**，我们以**reduceByKey**操作为例来进行讲解。如我们在附录中所记录的，reduceByKey(function)操作会通过它提供的function函数来计算RDD中所有相同key的聚合结果(如下图)，什么样的结果取决去function的具体实现。
+​	为了理解什么是**Shuffle操作**，我们以**reduceByKey**操作为例来进行讲解。如我们在附录中所记录的，reduceByKey(function)操作会通过它提供的function函数来计算RDD中所有相同key的聚合结果(如下图)，什么样的结果取决于function的具体实现。
 
 ![spark_56](images\spark_56.png)
 
 在进行reduceByKey计算过程中的挑战在于，同一个key是分布在不同的partition甚至不同的机器上的，为了计算得到结果，那么这些分布在不同partition或者不同机器上的同一个key的元素必须重新分配，使他们聚集到同一个partition上，这个过程就称之为**Shuffle**。
 
-​	在Spark中那些包含shuffle操作事件的操作有：reparation、coalesce、ByKey类操作(count操作除外)比如groupByKey，reduceByKey等、join类操作比如cogroup和join。
+​	在Spark中那些包含shuffle操作事件的操作有：repartition、coalesce、ByKey类操作(count操作除外)比如groupByKey，reduceByKey等、join类操作比如cogroup和join。
 
 **Shuffle对执行效率的影响**
 
-​	Shuffle是一个非常昂贵的操作，因为它涉及到了磁盘I/O，数据序列化，网络I/O等。为了重新组织数据进行Shuffle，Spark会生成一个任务集-*map*任务集阻止收集数据，*reduce*任务集进行聚合。这里的map和reduce是借鉴MapReduce中的概念，并不是指Spark中的map和reduce算子操作。
+​	Shuffle是一个非常昂贵的操作，因为它涉及到了磁盘I/O，数据序列化，网络I/O等。为了重新组织数据进行Shuffle，Spark会生成一个任务集-*map*任务集组织收集数据，*reduce*任务集进行聚合。这里的map和reduce是借鉴MapReduce中的概念，并不是指Spark中的map和reduce算子操作。
 
 ​	在Spark里面，每个*map*任务的结果会暂时保存在内存中，最终以文件块方式写入到磁盘上；而*reduce*任务则负责读取跟它相关的文件块。
 
@@ -284,8 +284,8 @@ Accumulator<Vector> vecAccum = sc.accumulator(new Vector(...), new VectorAccumul
 | Action                                 | Meaning                                  |
 | -------------------------------------- | ---------------------------------------- |
 | reduce(function)                       | 使用function函数对数据集中的元素进行聚合                 |
-| collect()                              | 将RDD中的所有元素所谓数据返回给driver program。常用在filter或者是数据集较小的RDD上 |
-| count()                                | 返回RDD中的元素ges                             |
+| collect()                              | 将RDD中的所有元素所有数据返回给driver program。常用在filter或者是数据集较小的RDD上 |
+| count()                                | 返回RDD中的元素个数                              |
 | first()                                | 返回RDD中的第一个元素，相当于take(1)                  |
 | take(n)                                | 把RDD中的前n个元素作为数据返回                        |
 | takeSample(withReplacement,num,[seed]) |                                          |
