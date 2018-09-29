@@ -10,7 +10,7 @@
 - RemoteScheduler：所有方法调用都是直接通过内部的RemotableQuartzScheduler实例通过RMI方式来完成的；
 - RemoteMBeanScheduler：Scheduler的一个抽象实现类，用户如果使用这个抽象类，那么必须自己创建子类来实现到远程MBeanServer的连接。
 
-### 三、调度器的调度过程
+### 二、调度器的调度过程
 
 下面以最常用的StdScheduler为例，对Quartz的任务调度过程进行分析。
 
@@ -113,7 +113,7 @@ public class SimpleExample {
    - 第二步：获取SchedulerRepository调度器仓库实例，在调度器仓库中，根据quartz.properties中配置的调度器名称查找是否已经存在同名的Scheduler实例，如果存在且没有shutdown则直接返回，否则继续下一步；
    - 第三步：根据配置文件实例化一个调度器；
      - 根据配置文件确定创建的调度器类型：RemoteScheduler(org.quartz.scheduler.rmi.proxy=true)、RemoteMBeanScheduler(org.quartz.scheduler.jmx.proxy=true)或者是StdScheduler(默认，下面过程是以这个为例)；
-     - 创建JobFactory工厂实例(由配置org.quartz.scheduler.jobFactory.class指定具体类，默认为null)，在触发器被触发时，负责创建具体的Job实例，也就是在具体项目中要实现的；
+     - 创建JobFactory工厂实例(由配置org.quartz.scheduler.jobFactory.class指定具体类，没有指定时取默认值：org.quartz.simpl.PropertySettingJobFactory.PropertySettingJobFactory)，在触发器被触发时，负责创建具体的Job实例，也就是在具体项目中要实现的；
      - 创建InstanceIdGenerator实例，负责生产调度器的唯一标识id；
      - 创建ThreadLocal线程池实例，并初始化一些属性值，由配置org.quartz.scheduler.jobFactory.class指定具体的线程池实现类，默认值org.quartz.simpl.SimpleThreadPool，负责执行具体的任务，注意这里还只是初始化的一个实例，还并没有创建具体的工作线程对象；
      - 创建JobStore任务存储器实例，由配置org.quartz.jobStore.class指定具体的存储实现类，默认值为org.quartz.simpl.RAMJobStore(将任务信息存放在内存中)，负责用户创建的定时任务信息的存储工作，还有一个实现类为org.quartz.impl.jdbcjobstore.JobStoreSupport(抽象类，将任务信息基于JDBC持久化)；
@@ -129,6 +129,49 @@ public class SimpleExample {
      - 将必要的属性实例值绑定到Scheduler实例；
      - 返回Scheduler实例；
    - 返回Scheduler实例。
+
+#### B. 任务提交
+
+![](images/任务提交流程.png)
+
+1. 通过Scheduler的scheduleJob(Trigger)或者schedulerJob(JobDetail, Trigger)方法，将定时任务提交给调度器，在具体的调度器实现中最终会委托给QuartzScheduler实例的scheduleJob(Trigger)或者schedulerJob(JobDetail, Trigger)方法；
+2. 在QuartzScheduler的scheduleJob方法中，首先对调度器的当前状态进行判断，如果调度器已经被关闭则抛出异常，终止任务的提交，否则继续执行下一步；
+3. 对提交的JobDetail和Trigger进行验证，如果两者都不为空，且Trigger绑定的job是jobdetail表示的且Trigger的name、group、jobname和jobgroup属性不为null，则继续进入下一步，否则抛出异常，终止任务的提交；
+4. 计算Trigger的第一次触发时间ft，如果ft==null，说明Trigger指定的触发时间已经过去了，这个任务永远都不会被触发了，则抛出异常，终止任务提交；否则进入下一步；
+5. 调用在初始化时配置的JobStore，将JobDetail和Trigger放入对应的存储器中；
+6. 通知SchedulerListener监听器有新任务加入；
+7. 通知SchedulerThread(QuartzSchedulerThread)调度器调度线程，改变调度状态，这个状态的变化在我们分析具体的调度时非常有用；
+8. 通知SchedulerListener监听器有新任务被调度；
+
+其中，Quartz提供的默认存储器RAMStore存储任务的结构如下：
+
+![](images/RAMStore存储任务.png)
+
+**jobsByGroup：**HashMap结构，存放JobDetail数据；其中以JobDetail设置的组名group为key，value值则是一个HashMap，value的HashMap以JobDetail的jobkey(由jobname和group组成)为键，值则是JobDetail的包装类(JobWrapper)；
+
+**triggersByGroup：**HashMap结构，存放Trigger数据；与jobsByGroup的结构一样，先以Trigger的所属组名group为key，value则是一个以triggerKey(由triggerName和group组成)为键，Trigger的包装类TriggerWrapper为值的HashMap;
+
+**jobsByKey：**一个以jobkey为键，JobWrapper为值的HashMap结构；
+
+**triggersByKey：**一个以triggerKey为键，TriggerWrapper为值的HashMap结构；
+
+**triggersByJob：**一个以Trigger绑定的jobDetail的jobkey为键，jobList(元素为TriggerWrapper的ArrayList)为值的HashMap结构；
+
+**timeTriggers：**按Trigger的下一次激活触发时间(nextFireTime)升序排序的TreeSet结构，存放可以被激活触发的TriggerWrapper，这个TreeSet里存放的数据也就是要被QuartzSchedulerThread线程调度的；
+
+#### C. 任务调度
+
+![](images/任务调度流程.png)
+
+
+
+
+
+
+
+
+
+
 
 
 
