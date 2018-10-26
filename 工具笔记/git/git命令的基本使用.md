@@ -525,9 +525,277 @@ git config --global alias.ci commit     # commit命令别名为ci
 git config --global alias.st status     # status命令别名为st
 ``````
 
-执行完上面命令之后，如果我们要提交文件到仓库就只需执行：`git ci`即可
+执行完上面命令之后，如果我们要提交文件到仓库就只需执行：`git ci`即可。
 
+### 二、分支
 
+在理解git的分支概念之前，我们首先得知道如下内容：
 
+Git不会将数据存储为一系列变更集或差异，而是存储为一系列快照-*snapshots*；当执行一个commit操作，git会存储一个commit对象，对象包含了一个指向你staged的内容快照的指针，包含作者的名称、右键地址以及提交注释，同时还包含一个指向前一次提交commit对象的一个指针或多个。
 
+为了可视化这个场景，假设有一个包含三个文件的目录，你staged并commit了，在staged之后每个文件都会计算出一个验证码-checksum，存储着每个文件的版本信息(在git中他们被称作blobs对象)；当我们运行git commit之后，git计算每个子目录的checksum并且在仓库中存储一颗树，然后再创建一个commit对象和一个指向树的指针。现在，git仓库中包含有5个对象：3个blobs对象(每个代表着三个文件的内容)，一个树对象(列出每个文件目录的结构以及文件和blobs的匹配关系)，还有一个commit对象，图示如下：
 
+![](images/2.jpg)
+
+现在我们修改文件并再次提交，那么这次的commit对象会包含多一个指向上次commit对象的指针，如下图：
+
+![](images/3.jpg)
+
+而git中的分支就是一个可移动的指针，指向这些commit中的某一个。默认的分支名字是master，当我们开始commit时，我们就是创建了一个master分支，并让master指向最新的一次commit上，这些都是git自动做的。
+
+master分支并不是一个特别的分支，它跟其他分支一样，在用git init初始化git仓库时默认都会创建这个分支。
+
+![](images/4.jpg)
+
+#### 创建分支
+
+> git branch testing
+
+作用：创建一个叫做testing的新分支，将会创建一个指针，图示如下：
+
+![](images/5.jpg)
+
+git怎么知道你现在处于哪个分支下呢？git维护了一个HEAD指针，它始终指向你当前所处的本地分支，git branch命令只是创建了一个新的分支，并不会切换到你新创建的分支，所以现在你还处在master分支上，如下图：
+
+![](images/6.jpg)
+
+你可以通过git log命令来查看分支指针的情况，如下：
+
+``````shell
+$ git log --oneline --decorate
+f30ab (HEAD -> master, testing) add feature #32 - ability to add new formats to the
+central interface
+34ac2 Fixed bug #1328 - stack overflow under certain conditions
+98ca9 The initial commit of my project
+``````
+
+#### 切换分支
+
+> git checkout testing
+
+作用：切换到一个存在的分支(testing分支)，此命令会让HEAD指针指向testing分支。
+
+![](images/7.jpg)
+
+好，现在让我们做一些提交操作，看看会发生什么样的变化？执行如下操作：
+
+``````shell
+$ vim test.rb
+$ git commit -a -m 'made a change'
+``````
+
+提交之后，情况如下图：
+
+![](images/8.jpg)
+
+我们可以看到当前分支往前进了，而master分支依然在原来的位置没有发生变化。
+
+现在如果切换到master分支会发生什么呢？执行如下命令切回到master分支：
+
+``````shell
+git checkout master
+``````
+
+![](images/9.jpg)
+
+HEAD指针变成指向master分支，同时我们的工作空间目录内容会恢复到master分支时的快照版本；这也就意味着如果你现在在master再提交内容，那么你的版本就是在f30ab处发生分离。
+
+现在让我们在master分支上也做一些提交看看会发生什么？执行如下操作：
+
+``````shell
+$ vim test.rb
+$ git commit -a -m 'made other changes'
+``````
+
+![](images/10.jpg)
+
+如前面说的，已经产生了两个不同内容的分支了，你可以在你以后需要的时候，将这两个分支合并。
+
+#### 分支和合并
+
+现在我们做一个简单的例子，来模拟真实场景中创建分支和合并分支的过程。你将执行以下操作：
+
+1. 在当前工作空间创建一个新的分支；
+2. 在新的分支上做一些工作；
+
+此时，你收到线上提交的一个严重bug，需要立即修复，你将执行如下操作：
+
+1. 切换到你的线上产品分支master；
+2. 创建一个新的分支hotfix来修复这个bug；
+3. 新的bug测试通过之后，将hotfix合并到master上。
+
+首先，假设我们已经创建了工作项目并且在工作目录的master分支上做了一些提交，commit历史如下图：
+
+![](images/11.jpg)
+
+此时，我们准备完成公司缺陷跟踪系统里面的#53号bug，那么我们可以创建一个新的分支并切换到这个新的分支上，执行如下命令：
+
+``````shell
+$ git checkout -b iss53
+Switched to a new branch "iss53"
+``````
+
+上面命令就是如下两个命令的合并：
+
+``````shell
+$ git branch iss53
+$ git checkout iss53
+``````
+
+此时，你的分支结构如下图：
+
+![](images/12.jpg)
+
+现在让我们在新建的分支iss53上做一些事情并提交：
+
+``````shell
+$ vim index.html
+$ git commit -a -m 'added a new footer [issue 53]'
+``````
+
+此时，iss53分支会向前进，而master分支不变，如下图：
+
+![](images/13.jpg)
+
+你做完这些事情之后，你收到通知线上环境出现了紧急bug需要立即修复，但是此时基于当时线上的环境你已经做了一些改变，你不可能恢复到之前的情况将你刚做的工作全部丢弃。所以为了修复这个紧急bug，你需要做的就是回到线上环境所处的代码位置，所以你必须切换到master分支上去修复这个问题。有一点需要注意的是：在你切换到master分支之前，请确保在iss53这个分支上的修改全部commit了，否则你切换的时候会有冲突git是不会让你切换成功的。
+
+好了，现在让我们切换到master分支上去修复这个紧急bug，执行如下命令切换到master分支：
+
+``````shell
+$ git checkout master
+Switched to branch 'master'
+``````
+
+此时，你的工作目录会恢复到之前master分支的最后一次提交时的状态。
+
+接下来，让我们创建一个hotfix分支来修复这个紧急bug，执行如下命令：
+
+``````shell
+$ git checkout -b hotfix
+Switched to a new branch 'hotfix'
+$ vim index.html
+$ git commit -a -m 'fixed the broken email address'
+[hotfix 1fb7853] fixed the broken email address
+ 1 file changed, 2 insertions(+)
+``````
+
+当前，你的分支结构类似下图：
+
+![](images/14.jpg)
+
+等你执行完你的测试，确保这个bug修复完成之后，你可以把hotfix这个分支合并到master上去发布到线上，你可以执行如下命令：
+
+``````shell
+$ git checkout master
+$ git merge hotfix
+Updating f42c576..3a0874c
+Fast-forward
+ index.html | 2 ++
+ 1 file changed, 2 insertions(+)
+``````
+
+你会发现这个合并过程是非常快速的，因为git只需简单的将master指向C2的指针指向C4即可，合并之后，你工作目录的分支结构如下图：
+
+![](images/15.jpg)
+
+在你修复完这个紧急bug之后，你准备切换到iss53这个分支，以继续完成你之前被打断的工作；但是在你切换到iss53这个分支之前，你应该先删除hotfix这个分支，因为你已经把这个分支合并到master上了，不再需要这个分支了，你可以通过如下命令来删除hotfix分支：
+
+``````shell
+$ git branch -d hotfix
+Deleted branch hotfix (3a0874c).
+``````
+
+好了，现在你可以切换会iss53这个分支了：
+
+``````shell
+$ git checkout iss53
+Switched to branch "iss53"
+$ vim index.html
+$ git commit -a -m 'finished the new footer [issue 53]'
+[iss53 ad82d7a] finished the new footer [issue 53]
+1 file changed, 1 insertion(+)
+``````
+
+当前的分支结构将变成下图：
+
+![](images/16.jpg)
+
+这里值得注意的是，你在hotfix分支做的事情并没有包含到iss53这个分支中，如果你需要把这些事情拉到iss53分支里面，那么你可以运行`git merge master`命令来实现；或者你可以等到你决定把iss53这个分支合并到master分支时才处理这些变化。
+
+现在让我们将iss53分支合并到master分支上，那么我们需要先切换到master分支上，然后在执行merge命令，过程如下：
+
+``````shell
+$ git checkout master
+Switched to branch 'master'
+$ git merge iss53
+Merge made by the 'recursive' strategy.
+index.html | 1 +
+1 file changed, 1 insertion(+)
+``````
+
+此处的merge命令就不会跟合并hotfix分支到master分支上那么简单了，此时git会新创建一个commit对象，分别指向3个合并线，具体如下图：
+
+![](images/17.jpg)
+
+![](images/18.jpg)
+
+至此，我们一套基本的流程算是走完了。
+
+那么如果我们在合并分支的过程中，有文件冲突怎么处置呢？
+
+比如在我们修改hotfix分支和iss53分支时都修改了同一个文件index.html，那么我们在合并时将会出现如下提示，且合并会阻塞，不会完成：
+
+``````shell
+$ git merge iss53
+Auto-merging index.html
+CONFLICT (content): Merge conflict in index.html
+Automatic merge failed; fix conflicts and then commit the result.
+``````
+
+你可以通过如下命令查看冲突状态：
+
+``````shell
+$ git status
+On branch master
+You have unmerged paths.
+ (fix conflicts and run "git commit")
+Unmerged paths:
+ (use "git add <file>..." to mark resolution)
+ both modified: index.html
+no changes added to commit (use "git add" and/or "git commit -a")
+``````
+
+如果你打开index.html这个文件看到的是如下内容：
+
+``````html
+<<<<<<< HEAD:index.html
+<div id="footer">contact : email.support@github.com</div>
+=======
+<div id="footer">
+ please contact us at support@github.com
+</div>
+>>>>>>> iss53:index.html
+``````
+
+其中\=\=\===\=\=上面的内容是HEAD分支(当前也就是master分支)的内容，在\=\=\=\=\=\=\=下面的内容则为iss53分支下这个文件的内容；为了解决这个冲突，你必须选择一个分支的内容丢弃另一个分支的内容，或者是合并这个两个分支的内容，为了说明情况，你可能处理这个文件的内容如下：
+
+``````html
+<div id="footer">
+please contact us at email.support@github.com
+</div>
+``````
+
+在你把每个冲突文件处理完之后，你必须运行`git add`命令把每个冲突文件add一边，表示已经解决了冲突。
+
+此时，你再执行`git status`命令看到的是如下提示：
+
+``````shell
+$ git status
+On branch master
+All conflicts fixed but you are still merging.
+ (use "git commit" to conclude merge)
+Changes to be committed:
+ modified: index.html
+``````
+
+此时，你只需执行`git commit`命令即可完成之前合并时未完成的工作。
