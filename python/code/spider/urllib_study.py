@@ -173,5 +173,82 @@ except urllib.error.URLError as e:
 """
 解析链接-parse模块
 定义了处理URL的标准接口，例如实现URL各部分的抽取、合并以及链接转换
-支持协议：file、ftp、gopher、hdl、http、https
+支持协议：file、ftp、gopher、hdl、http、https等
 """
+from urllib.parse import urlparse
+
+# 1. urlparse()的使用
+# urltring：必选项，待解析的URL
+result = urlparse('http://www.baidu.com/index.html;user?id=5#comment')
+print(type(result), result)
+
+# scheme：默认协议，假如这个链接没有带协议信息，会将这个作为默认的协议
+result = urlparse('www.baidu.com/index.html;user?id=5#comment', scheme='https')
+print(result)
+
+# allow_fragments：是否忽略fragment，及锚点
+result = urlparse('http://www.baidu.com/index.html;user?id=5#comment', allow_fragments=False)
+print(result)
+
+# urlparse()返回对象ParseResult实际上是一个元组，可以用索引顺序来获取，也可以用属性名获取
+result = urlparse('http://www.baidu.com/index.html#comment', allow_fragments=False)
+print(result.scheme, result[0], result.netloc, result[1], sep='\n')
+
+
+# 2. urlunparse()的使用：接受的参数是一个可迭代对象，但是它的长度必须是6，否则会抛出异常
+from urllib.parse import urlunparse
+data = ['http', 'www.baidu.com', 'index.html', 'user', 'a=b', 'comment']
+print(urlunparse(data))
+
+# 3. urlsplit()：和urlparse()类似，只不过它不再单独解析params这一部分，只返回5个结果
+from urllib.parse import urlsplit
+result = urlsplit('http://www.baidu.com/index.html;user?id=5#comment')
+print(result)
+
+# 4. urlunsplit()：和urlunparse()类似，接受的参数是一个可迭代对象，但是它的长度必须是5
+from urllib.parse import urlunsplit
+data = ['http', 'www.baidu.com', 'index.html', 'a=6', 'comment']
+print(urlunsplit(data))
+
+# 5. urljoin()：提供一个base_url作为第一个参数(基础链接)，将新的链接作为第二个参数，该方法会分析base_url的scheme、netloc和path这
+#    些内容并对新链接缺失部分进行补充
+from urllib.parse import urljoin
+print(urljoin('http://www.baidu.com', 'FAQ.html'))
+print(urljoin('http://www.baidu.com', 'https://cuiqingcai.com/FAQ.html'))
+print(urljoin('http://www.baidu.com/about.html', 'https://cuiqingcai.com/FAQ.html'))
+print(urljoin('http://www.baidu.com/about.html', 'https://cuiqingcai.com/FAQ.html?question=2'))
+print(urljoin('http://www.baidu.com?wd=abc', 'https://cuiqingcai.com/index.php'))
+print(urljoin('http://www.baidu.com', '?category=2#comment'))
+print(urljoin('www.baidu.com', '?category=2#comment'))
+print(urljoin('www.baidu.com#comment', '?category=2'))
+
+# 6. urlencode(): 序列化为get请求参数
+from urllib.parse import urlencode
+params = {
+	'name': 'germey',
+	'age': 22
+}
+base_url = 'http://www.baidu.com?'
+url = base_url + urlencode(params)
+print(url)
+
+# 7. parse_qs(): 反序列化，将get请求参数转回字典
+from urllib.parse import parse_qs
+query = 'name=germey&age=22'
+print(parse_qs(query))
+
+# 8. parse_qsl(): 将参数转化为元组组成的列表
+from urllib.parse import parse_qsl
+query = 'name=germey&age=22'
+print(parse_qsl(query))
+
+# 9. quote(): 将内容转化为URL编码的格式
+from urllib.parse import quote
+keyword = '壁纸'
+url = 'https://www.baidu.com/s?wd=' + quote(keyword)
+print(url)
+
+# 10. unquote(): 进行URL解码
+from urllib.parse import unquote
+url = 'https://www.baidu.com/s?wd=%E5%A3%81%E7%BA%B8'
+print(unquote(url))
