@@ -4,3 +4,21 @@
 /code/**/.project
 /code/**/.settings
 /code/**/target
+
+### STS ###
+/code/**/.apt_generated
+/code/**/.factorypath
+/code/**/.springBeans
+/code/**/.sts4-cache
+
+### IntelliJ IDEA ###
+/code/**/*.iws
+/code/**/*.ipr
+
+### NetBeans ###
+/code/**/nbproject/private/
+/code/**/nbbuild/
+/code/**/dist/
+/code/**/nbdist/
+/code/**/.nb-gradle/
+/code/**/build/
