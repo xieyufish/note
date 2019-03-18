@@ -4,11 +4,10 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.xieyu.springboot</groupId>
 	<artifactId>start</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
 	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>2.1.0.RELEASE</version>
+		<groupId>com.xieyu</groupId>
+		<artifactId>springboot</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
 	</parent>
 	<!-- Additional lines to be added here... -->
 
@@ -18,13 +17,4 @@
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 	</dependencies>
-
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-			</plugin>
-		</plugins>
-	</build>
 </project>
