@@ -1,0 +1,14 @@
+spring:
+   application:
+      name: Zookeeper-Client
+   cloud:
+      zookeeper:
+         connect-string: localhost:2181
+         
+server:
+   port:8080
+   
+management:
+   security:
+      enabled: false
+      
