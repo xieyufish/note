@@ -23,6 +23,7 @@
     <module>spring-cloud-config-client</module>
     <module>spring-cloud-eureka-consumer-ribbon-hystrix</module>
     <module>hystrix-dashboard</module>
+    <module>spring-cloud-stream-hello</module>
   </modules>
 
 	<properties>
