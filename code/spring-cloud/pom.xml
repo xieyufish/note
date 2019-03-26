@@ -19,11 +19,16 @@
 		<module>spring-cloud-eureka-consumer</module>
 		<module>spring-cloud-eureka-consumer-ribbon</module>
 		<module>spring-cloud-eureka-consumer-feign</module>
-    <module>spring-cloud-config-server-git</module>
-    <module>spring-cloud-config-client</module>
-    <module>spring-cloud-eureka-consumer-ribbon-hystrix</module>
-    <module>hystrix-dashboard</module>
-    <module>spring-cloud-stream-hello</module>
+		<module>spring-cloud-config-server-git</module>
+		<module>spring-cloud-config-client</module>
+		<module>spring-cloud-eureka-consumer-ribbon-hystrix</module>
+		<module>hystrix-dashboard</module>
+		<module>spring-cloud-stream-hello</module>
+		<module>spring-cloud-stream-consumer-group</module>
+    <module>spring-cloud-stream-producer</module>
+    <module>spring-cloud-trace-1</module>
+    <module>spring-cloud-trace-2</module>
+    <module>zipkin-server</module>
   </modules>
 
 	<properties>
@@ -43,4 +48,20 @@
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
+	
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<source>${java.version}</source>
+					<target>${java.version}</target>
+					<!-- true:跳过测试 -->
+					<skip>true</skip>
+					<encoding>UTF-8</encoding>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
 </project>
