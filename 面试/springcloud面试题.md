@@ -45,4 +45,45 @@
 
 ## 5. Eureka的工作原理？
 
+Eureka是一个以负载均衡和故障转移为目的主要在AWS云上用于定位发现服务的基于REST服务的中间件。它分为Eureka Server和Eureka Client，在Client端有内置的负载均衡器用于做随机轮询方式的负载均衡。
+
+Eureka的典型集群架构如下：
+
+![](images/eureka_architecture.png)
+
+1. 每个region(可以理解一个分区)有一个eureka集群，这个集群只知道在这个分区里面的eureka节点，region里面又分为多个zone，每个zone里面至少有一个eureka节点来处理zone故障；
+2. 服务注册到eureka后，通过eureka client客户端每隔30秒就发送心跳来跟新续费自己的租赁凭证信息；如果某个服务有多次没有成功更新自己的租赁凭证，就会被剔除（3次，共90秒的时间里面）；
+3. 服务注册信息和续费信息会在集群的所有节点里面复制，来自任何zone里的eureka client通过查询服务注册信息(每隔30秒)来定位服务，然后远程调用服务。
+
+Eureka服务的状态：
+
+- STARTING：服务在做一些初始化工作；
+- UP：服务正式上线，可以提供服务了；
+- DOWN：在心跳检测失败之后，会转变到这种状态；
+- OUT_OF_SERVICE：表示一个服务完全下线。
+
+Eureka Client首先会试图在同一个zone里面的eureka节点进行所有的操作，如果发现这个zone里面的节点故障了，则会转移到其他的zone节点中去。
+
+**Eureka Client和Eureka Server的通信**
+
+1. 注册(Register)
+   client会将所在的运行实例信息注册到Server上。注册动作发生在第一次心跳的时候(也就是30秒之后，这里的意思应该是建立连接成功后的第一次心跳，也就是建立连接成功后的30秒)；
+2. 续费(Renew)
+   Client通过每隔30秒发送心跳信息来续费租赁，这个续费租赁信息就是通知Server这个实例依然活着，如果Server超过90秒没有收到Client发送过来的续费心跳，它会删除这个实例的注册信息。
+3. 获取注册表(Fetch Registry)
+   Client从Server抓取注册表信息，并将其缓存在本地；在此之后，Client使用这个注册表来发现其他服务；这个注册表信息通过每隔30秒从Server获取增量更新(这次抓取与上次抓取的变化)的方式来更新；在Server端存储这些增量更新信息的时长是3分钟，所以客户端可能会抓取到相同的增量信息，Client自己处理这些重复信息。获取到这个增量更新后，Client会与Server比较实例的个数，如果个数不一样，Client会重新抓取整个注册表信息。
+4. 取消注册(Cancel)
+   Client在关闭时(Client应该要确保执行shudownComponent()方法)会发送一个cancel请求到Server端，Server端会从注册表中移除这个实例。
+5. 时延(Time Lag)
+   因为Client要花费时间将自己的操作变化反映到Server，同时Server也是定时的刷新它自己的缓存，所以要使得集群里面所有的节点获取这些变化更新，可能需要花费比较长的时延(大概2分钟)。
+6. 通信机制
+   默认，Client使用Jersey和Jackson JSON相互通信。
+
+**自我保护机制**
+
+如果Eureka服务器检测到大于预期数量的已注册客户端以非正常方式终止其连接，并且同时正在等待删除，则它们将进入自我保护模式。这样做是为了确保灾难性网络事件不会消除eureka注册表数据，并将其传播到下游所有客户端。
+
+Eureka协议要求Client如果不在提供服务需要执行一个明确的unregister动作来告诉Server，这个操作通过shutdownComponent方法来完成。但是如果任何的Client在连续的3个心跳时间内与Server失去练习，就会被认为发生了异常终止，会被Server的移除进程从注册表移除。当有超过15%的注册实例都出现这种状况时，自我保护机制就会触发，自我保护机制触发之后Eureka Server会禁止从注册表移除实例信息。
+
+
 
