@@ -49,7 +49,7 @@ DI是Dependency Injection，依赖注入，因为控制反转是将获得依赖�
 
 ## 4. IoC容器的初始化过程？
 
-IoC容易的初始化过程主要包括三个基本过程：配置文件加载、配置文件的解析和BeanDefinition注册到BeanFactory。
+IoC容器的初始化过程主要包括三个基本过程：配置文件加载、配置文件的解析和BeanDefinition注册到BeanFactory。
 
 1. 配置文件加载：Spring提供了多种配置文件资源加载方式，比如classpath：，file:，url:等方式，通过提供不同ApplicationContext子类对应不同的配置文件加载方式，最终通过一个ResourceLoader类实现配置文件的读取流；
 2. 配置文件解析：通过解析配置文件，将配置文件中bean元素、其他各种命名空间中的元素配置解析为不同的BeanDefinition实例；
