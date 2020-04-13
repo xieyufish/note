@@ -1,5 +1,10 @@
 package com.xieyu.springboot.configuration;
 
+import org.springframework.core.convert.support.ConfigurableConversionService;
+import org.springframework.core.env.*;
+
+import java.util.Map;
+
 /**
  * <b>类作用描述：</b>
  * <pre>
@@ -45,4 +50,8 @@ public class ApplicationPropertiesFile {
 	 * 5. classpath:/config/
 	 * 6. classpath:/
 	 */
+	public static void main(String[] args) {
+		ConfigurableEnvironment configurableEnvironment = new StandardEnvironment();
+		configurableEnvironment.setActiveProfiles();
+	}
 }
