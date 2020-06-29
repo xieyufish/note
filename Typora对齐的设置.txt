@@ -1,0 +1,6 @@
+.md-heading, .md-p, .md-table {
+    white-space: pre-wrap;
+    word-break: break-all;
+    word-wrap: break-word;
+    text-align: justify;
+}
