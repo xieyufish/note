@@ -209,12 +209,12 @@ AsynchronousChannelGroupImpl(AsynchronousChannelProvider provider,
  */
 protected final void startThreads(Runnable task) {
     if (!isFixedThreadPool()) {	// 不是固定线程数的线程池，即属于无界线程池
-        for (int i=0; i<internalThreadCount; i++) {	// 循环创建并启动内部线程
+        for (int i=0; i<internalThreadCount; i++) {	// 循环创建并启动内部线程，默认值为1
             startInternalThread(task);	// 启动内部线程
             threadCount.incrementAndGet();
         }
     }
-    if (pool.poolSize() > 0) {	// 线程池线程启动
+    if (pool.poolSize() > 0) {	// 线程池线程启动，poolSize就是nThreads或者initialSize的值
         task = bindToGroup(task);	// 将当前异步通道组实例绑定到线程本地变量表中
         try {
             // 根据线程池大小启动池内线程
@@ -317,14 +317,14 @@ public final void execute(Runnable task) {
 
 ```java
 /**
- * 针对固定大小的线程池，将任务提交到队列中，等待I/O事件的发生
+ * 针对固定大小的线程池，将任务添加提交到队列中，并唤醒等待I/O事件的发生的线程来执行这个任务
  * 针对其他类型的线程池，只是简单的提交任务到线程池中
  */
 final void executeOnPooledThread(Runnable task) {
     if (isFixedThreadPool()) {
         executeOnHandlerTask(task);	// 由具体的平台提供实现
     } else {
-        pool.executor().execute(bindToGroup(task));
+        pool.executor().execute(bindToGroup(task)); // 提交到线程池中去执行
     }
 }
 ```
@@ -335,7 +335,7 @@ final void executeOnPooledThread(Runnable task) {
 
 ```java
 /**
- * 通过异步通道组实例创建一个异步通道，会将异步通道绑定到这个组
+ * 通过异步通道组实例，利用异步通道提供器来创建一个异步通道，会将异步通道绑定到这个组
  */
 public static AsynchronousServerSocketChannel open(AsynchronousChannelGroup group)
         throws IOException
@@ -424,6 +424,9 @@ public static AsynchronousSocketChannel open() throws IOException
     return open(null);
 }
 
+/**
+ * 通过异步通道组，利用异步通道服务提供器来创建一个客户端异步通道，并这个异步通道绑定到传入的异步通道组上面
+ */
 public static AsynchronousSocketChannel open(AsynchronousChannelGroup group) throws IOException
 {
     AsynchronousChannelProvider provider = (group == null) ?
