@@ -203,6 +203,8 @@ public class WindowsAsynchronousChannelProvider extends AsynchronousChannelProvi
 
 从上面的**WindowsAsynchronousChannelProvider**实现类，我们已经知道了Windows平台下创建的异步通道组是**Iocp**类的实例，**Iocp**类在*sun.nio.ch*包下，继承自**AsynchronousChannelGroupImpl**这个抽象实现类。**Iocp**类是对Windows中Iocp的封装实现，在此类中维护了如下几个关键属性：
 
+#### 关键属性
+
 > long **port**
 
 指向底层IO完成端口的句柄值，根据它可以访问到内核的IO完成端口对象。
@@ -218,6 +220,8 @@ CompletionKey到Channel的映射关系，在IO操作完成之后，底层会根�
 过期的OVERLAPPED结构。
 
 下面看一下，**Iocp**类中的几个关键方法，看它如何实现对底层Iocp的调用的。
+
+#### 关键函数
 
 > **构造函数**
 
@@ -1295,10 +1299,10 @@ public void run() {
         // Overlapped缓冲处理，上面有说过不再赘述
         overlapped = ioCache.add(result);
 
-        // 发出异步IO读请求，注意传入的参数值
+        // 本地方法调用，发出异步IO读请求，注意传入的参数值，会调用Windows中的WSARecv接口来接收数据
         // handle：文件句柄
         // numBufs：表示用于接收读取内容的WSABUF结构的个数
-        // readBufferArray：表示用于接收读取内容的内存块的首地址
+        // readBufferArray：表示用于接收内容的WSABUF结构内存块的首地址
         // overlapped：用于在异步IO完成时返回
         int n = read0(handle, numBufs, readBufferArray, overlapped);
         if (n == IOStatus.UNAVAILABLE) {
@@ -1318,6 +1322,7 @@ public void run() {
                 result.setResult((V)Integer.valueOf(-1));
             }
         } else {
+            // 这里为什么要直接抛出异常呢？跟底层返回值有关，下面介绍本地方法的时候会说
             throw new InternalError("Read completed immediately");
         }
     } catch (Throwable x) {
@@ -1332,6 +1337,8 @@ public void run() {
         
         if (!pending) {
             // not Pending，说明io已经完成，需要释放占用的资源
+            // 注意这里的完成只可能是两种情况：EOF或抛出异常，所以在下面才要releaBuffers；
+            // 否则是需要先将读取的内容拷贝到jvm空间才能释放的
             if (overlapped != 0L)
                 ioCache.remove(overlapped);
             if (prepared)
@@ -1391,6 +1398,340 @@ void releaseBuffers() {
             Util.releaseTemporaryDirectBuffer(shadow[i]);  // 将shadow[i]指向的本地堆内存放入环形缓冲池（元素个数小于16）或者是直接free释放
         }
     }
+}
+```
+
+下面看一下***read0()***这个本地方法的定义及其实现吧：
+
+```java
+private static native int read0(long socket, int count, long addres, long overlapped)
+        throws IOException;
+```
+
+```c
+/**
+ * env：指向一个JNI环境，不需要传
+ * this：表示当前的java实例对象，这里表示的就是调用read()方法的WindowsAsynchronousSocketChannelImpl的实例，不需要传
+ * socket：java中传进来的文件句柄，即socket内存地址
+ * count：表示的address指向的地址的WSABUF结构的个数
+ * address：接收内容的WSABUF结构块的首地址
+ * ov：overlapped结构地址的首地址
+ */
+JNIEXPORT jint JNICALL
+Java_sun_nio_ch_WindowsAsynchronousSocketChannelImpl_read0(JNIEnv* env, jclass this,
+    jlong socket, jint count, jlong address, jlong ov)
+{
+    // 值转换
+    SOCKET s = (SOCKET) jlong_to_ptr(socket);
+    WSABUF* lpWsaBuf = (WSABUF*) jlong_to_ptr(address);
+    OVERLAPPED* lpOverlapped = (OVERLAPPED*) jlong_to_ptr(ov);
+    BOOL res;
+    DWORD flags = 0;
+
+    ZeroMemory((PVOID)lpOverlapped, sizeof(OVERLAPPED)); // overlapped内存块初始化
+    // 通过Windows提供的库函数WSARecv发出读请求
+    res = WSARecv(s,	// socket地址
+                  lpWsaBuf,	// WSABUF内存块地址
+                  (DWORD)count,	// WSABUF个数
+                  NULL,	// 用于存放接收到的字节数
+                  &flags,	// 用户定义WSARecv的行为
+                  lpOverlapped, // overlapped结构
+                  NULL); // 在Windows的alter io模型中使用，这里传空
+
+    // 处理结果
+    if (res == SOCKET_ERROR) {
+        int error = WSAGetLastError();
+        if (error == WSA_IO_PENDING) { // 表示读取io操作已成功发出，结果需要等待
+            return IOS_UNAVAILABLE;
+        }
+        if (error == WSAESHUTDOWN) { // 表示读取io操作已经完成
+            return IOS_EOF;       
+        }
+        // 其他情况，返回异常
+        JNU_ThrowIOExceptionWithLastError(env, "WSARecv failed");
+        return IOS_THROWN;
+    }
+    return IOS_UNAVAILABLE; // 返回io操作已成功发出，结果需要等待
+    
+    // 现在知道上面获取到read0结果之后，n!=UNAVAILABLE和IOS_EOF时要抛出异常了吧
+    // 因为底层就只返回了三种值，除了UNAVAILABLE和EOF，剩下的就是异常值
+}
+```
+
+可能大家对WSABUF这个结构还是不能理解，画个图方希望对你理解有帮助：
+
+![](images/image-20200709142614546.png)
+
+将数据写入到WSABUF数组时，就是根据每个元素的length和buf指针将内容写到buf指向的内存块，每个内存块可写入的字节数为length。
+
+**ReadTask**实现了**Iocp.ResultHandler**接口，在**Iocp.EventHandlerTask**中处理IO操作完成时会调用它的***completed()***或者是***failed()***方法，看一下这两个方法的实现：
+
+```java
+/**
+ * 读操作完成时的处理调用函数
+ * bytesTransferred：这次读操作读到的字节数
+ * canInvokeDireck：是直接在当前线程处理还是考虑扔到线程池处理
+ */
+@Override
+@SuppressWarnings("unchecked")
+public void completed(int bytesTransferred, boolean canInvokeDirect) {
+    if (bytesTransferred == 0) {
+        bytesTransferred = -1;  // EOF
+    } else {
+        // 更新buffer，主要是把在prepareBuffers阶段新分配的本地堆内容更新到read()方法传进来的bufs指定的jvm堆中
+        updateBuffers(bytesTransferred);
+    }
+
+    // 内容处理完之后，要释放新分配的本地堆
+    releaseBuffers();
+
+    // 获取锁，跟超时线程保持同步
+    synchronized (result) {
+        if (result.isDone()) // 结果已经处理完（可能是超时了，超时线程先获得了锁处理了）
+            return;
+        enableReading();	// 此次异步读操作结束了，可以开放允许下次读操作发出了
+        
+        // 将读取到的字节数设置到结果中
+        if (scatteringRead) {
+            result.setResult((V)Long.valueOf(bytesTransferred));
+        } else {
+            result.setResult((V)Integer.valueOf(bytesTransferred));
+        }
+    }
+    
+    // Invoker处理
+    if (canInvokeDirect) {
+        Invoker.invokeUnchecked(result); // 直接当前线程调用处理
+    } else {
+        Invoker.invoke(result); 	// 内部判断是否扔线程池处理
+    }
+}
+
+/**
+ * 此次读操作异常失败
+ * error：异常码
+ * x：包装的异常实例
+ */
+@Override
+public void failed(int error, IOException x) {
+    // 异常了，直接释放新分配的本地堆
+    releaseBuffers();
+
+    // 如果实例已经关闭，包装一个异步关闭异常
+    if (!isOpen())
+        x = new AsynchronousCloseException();
+
+    // 获取锁，跟超时线程竞争
+    synchronized (result) {
+        if (result.isDone())
+            return;
+        enableReading(); // 开放下一次读
+        result.setFailure(x); // 设置失败结果
+    }
+    Invoker.invoke(result); // Invoker处理
+}
+```
+
+还是看一下***updateBuffers()***这个函数吧：
+
+```java
+/**
+ * bytesRead：此次读操作读到的字节数
+ */
+void updateBuffers(int bytesRead) {
+    // 遍历shadow数组，因为读到的内容都写到了shadow数组中，
+    // 为什么到了shadow数组，是在prepareBuffers阶段做的处理
+    for (int i=0; i<numBufs; i++) {
+        ByteBuffer nextBuffer = shadow[i]; // 去数组中的bytebuffer
+        int pos = nextBuffer.position();
+        int len = nextBuffer.remaining();
+        // 更新bytebuffer的position位置
+        if (bytesRead >= len) {
+            bytesRead -= len;
+            int newPosition = pos + len;
+            try {
+                nextBuffer.position(newPosition);
+            } catch (IllegalArgumentException x) {
+                
+            }
+        } else { 
+            if (bytesRead > 0) {
+                assert(pos + bytesRead < (long)Integer.MAX_VALUE);
+                int newPosition = pos + bytesRead;
+                try {
+                    nextBuffer.position(newPosition);
+                } catch (IllegalArgumentException x) {
+                    
+                }
+            }
+            break;
+        }
+    }
+
+    // 再次遍历，其实这一部分可以写到上面的循环，提高一点效率，不过这个循环最大也就16次
+    for (int i=0; i<numBufs; i++) {
+        if (!(bufs[i] instanceof DirectBuffer)) {
+            // bufs[i]不是DirectBuffer类型的，说明是新分配的本地堆
+            // 所以需要将本地堆的内容拷贝put到bufs[i]对应的jvm内存位置
+            // 所以，如果我们在read()函数传进来的bufs不是DirectBuffer类型，就会增加一次在本地堆与jvm堆之间的内存拷贝操作
+            shadow[i].flip();
+            try {
+                bufs[i].put(shadow[i]);
+            } catch (BufferOverflowException x) {
+                
+            }
+        }
+    }
+}
+```
+
+> **implWrite()**
+
+***implWrite()***函数跟***implRead()***的逻辑是完全一样的，我就不再赘述了。下面列出它们之间的不同点：
+
+1. 用的是**WriteTask**任务；
+2. ***write0()***底层使用的是***WSASend()***库函数；
+3. ***prepareBuffers()***做的事情是把用户传进来的bufs数组中的非DirectBuffer拷贝到新分配的DirectBuffer中，然后组装层WSABUF结构数组，在发送的时候就是把WSABUF指向的内容发送出去；
+4. ***updateBuffers()***就是更新一下bufs数组的position，不用再做额外的操作；
+
+其他方面都跟***implRead()***处理逻辑一样。
+
+:warning:**建议：**从上面的分析可以知道，对于读写操作，如果我们传入的ByteBuffer数组bufs中的类型不是DirectBuffer类型，都会多一次从jvm堆到本地堆的一个内存拷贝过程（读操作是发生在读完成之后，写操作是发生在写操作之前），这无疑会降低读写效率，所以我们在分配bufs数组时最好使用DirectBuffer。
+
+### 6. Invoker
+
+在上面分析中，有多处地方引用到了*sun.nio.ch*包下的**Invoker**这个工具类；此类的主要作用是确定某个任务应该如何被执行，是直接在调用线程中执行还是要扔到线程池中去执行。下面我们也简单看一下几个关键方法吧：
+
+> **invokeIndirectly()**
+
+```java
+/**
+ * 将一个PendingFuture扔到线程池中处理
+ * indirectly：不直接，也就是说调用这个方法的线程不直接执行，而是扔到线程池中执行
+ */
+static <V,A> void invokeIndirectly(PendingFuture<V,A> future) {
+    assert future.isDone();
+    CompletionHandler<V,? super A> handler = future.handler(); // 获取CompletionHandler
+    if (handler != null) {
+        invokeIndirectly(future.channel(), // PendingFuture绑定的通道
+                         handler,
+                         future.attachment(),
+                         future.value(),
+                         future.exception());
+    }
+}
+
+static <V,A> void invokeIndirectly(AsynchronousChannel channel,
+                                       final CompletionHandler<V,? super A> handler,
+                                       final A attachment,
+                                       final V result,
+                                       final Throwable exc)
+{
+    try {
+        // 通过Channel获取到通道组(这里就是Iocp实例)，然后调用executeOnPooledThread
+        // Iocp的executeOnPooledThread做了什么，在上篇文章介绍AsynchronousChannelGroupImpl的时候有介绍
+        // 1. 首先会判断绑定线程池类型，为fixed类型，就走executeOnHandlerTask()方法（Iocp中这个方法的实现在上面介绍了，可以往上翻翻，基本逻辑就是扔任务队列唤醒线程）；
+        // 2. 否则，将任务扔到executor线程池中去
+        ((Groupable)channel).group().executeOnPooledThread(new Runnable() {
+            public void run() {
+                GroupAndInvokeCount thisGroupAndInvokeCount =
+                    myGroupAndInvokeCount.get();
+                if (thisGroupAndInvokeCount != null)
+                    thisGroupAndInvokeCount.setInvokeCount(1); // 重置调用次数
+                invokeUnchecked(handler, attachment, result, exc); // 在调用invokeUnchecked方法
+            }
+        });
+    } catch (RejectedExecutionException ree) {
+        throw new ShutdownChannelGroupException();
+    }
+}
+
+/**
+ * 真正回调CompletionHandler实例的方法
+ */
+static <V,A> void invokeUnchecked(CompletionHandler<V,? super A> handler,
+                                      A attachment,
+                                      V value,
+                                      Throwable exc)
+{
+    // 根据exc是否为空来决定IO操作是完成了还是失败了
+    if (exc == null) {
+        handler.completed(value, attachment);
+    } else {
+        handler.failed(exc, attachment);
+    }
+
+    Thread.interrupted();
+}
+```
+
+> **invoke()**
+
+```java
+static <V,A> void invoke(PendingFuture<V,A> future) {
+    assert future.isDone();
+    CompletionHandler<V,? super A> handler = future.handler();
+    if (handler != null) {
+        invoke(future.channel(),
+               handler,
+               future.attachment(),
+               future.value(),
+               future.exception());
+    }
+}
+
+/**
+ * 判断任务的执行方式
+ */
+static <V,A> void invoke(AsynchronousChannel channel,
+                             CompletionHandler<V,? super A> handler,
+                             A attachment,
+                             V result,
+                             Throwable exc)
+{
+    boolean invokeDirect = false;
+    boolean identityOkay = false;
+    // myGroupAndInvokeCount是一个ThreadLocal变量
+    // 获取当前线程本地变量表中的GroupAndInvokeCount变量（里面包装了异步通道组Iocp实例和当前线程的调用次数）
+    GroupAndInvokeCount thisGroupAndInvokeCount = myGroupAndInvokeCount.get();
+    if (thisGroupAndInvokeCount != null) {
+        // 首先判断线程绑定到的Iocp与当前通道channel的Iocp是否是同一个
+        if ((thisGroupAndInvokeCount.group() == ((Groupable)channel).group()))
+            identityOkay = true;
+        if (identityOkay &&
+            (thisGroupAndInvokeCount.invokeCount() < maxHandlerInvokeCount)) // 16次
+        {
+            // 再判断调用次数
+            // 这个调用次数的作用有没有用，我一直没想不明白，按照解释是为了防止线程栈溢出（但是又没看到哪里由回收栈空间的操作）
+            invokeDirect = true;
+        }
+    }
+    if (invokeDirect) {
+        // 直接有当前线程执行
+        invokeDirect(thisGroupAndInvokeCount, handler, attachment, result, exc);
+    } else {
+        try {
+            // 扔到线程池中取执行
+            invokeIndirectly(channel, handler, attachment, result, exc);
+        } catch (RejectedExecutionException ree) {
+            if (identityOkay) {
+                invokeDirect(thisGroupAndInvokeCount,
+                             handler, attachment, result, exc);
+            } else {
+                throw new ShutdownChannelGroupException();
+            }
+        }
+    }
+}
+
+static <V,A> void invokeDirect(GroupAndInvokeCount myGroupAndInvokeCount,
+                                   CompletionHandler<V,? super A> handler,
+                                   A attachment,
+                                   V result,
+                                   Throwable exc)
+{
+    myGroupAndInvokeCount.incrementInvokeCount(); // 调用次数+1
+    Invoker.invokeUnchecked(handler, attachment, result, exc);
 }
 ```
 
