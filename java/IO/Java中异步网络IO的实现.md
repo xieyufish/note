@@ -205,19 +205,23 @@ AsynchronousChannelGroupImpl(AsynchronousChannelProvider provider,
 
 ```java
 /**
- * 启动线程，会根据线程池大小启动所有的线程
+ * 启动线程，会根据线程池大小（或初始大小）启动所有的线程，这里启动的所有线程池会用于去监听异步IO完成事件
+ * 也就意味着：
+ * 1. 针对固定线程数大小的线程池，其所有的线程都会去监听异步IO完成事件，监听到之后也是由这个线程池线程来处理完成任务；
+ * 2. 针对Cached线程数的线程池，其监听异步IO事件的有[internalThreadCount个单独的线程 + initialSize个池内线程]，监听到之后任务只能由池内线程处理
+ *    internalThreadCount个线程不会去处理完成任务只负责监听和将任务扔到池中
  */
 protected final void startThreads(Runnable task) {
-    if (!isFixedThreadPool()) {	// 不是固定线程数的线程池，即属于无界线程池
-        for (int i=0; i<internalThreadCount; i++) {	// 循环创建并启动内部线程，默认值为1
-            startInternalThread(task);	// 启动内部线程
+    if (!isFixedThreadPool()) {	// 不是固定线程数的线程池，即属于无界线程池（CachedThreadPool）
+        for (int i=0; i<internalThreadCount; i++) {	// 循环创建并启动内部线程，默认值为1，不归线程池管理（在CachedThreadPool类型非常有用）
+            startInternalThread(task);	// 启动线程
             threadCount.incrementAndGet();
         }
     }
-    if (pool.poolSize() > 0) {	// 线程池线程启动，poolSize就是nThreads或者initialSize的值
-        task = bindToGroup(task);	// 将当前异步通道组实例绑定到线程本地变量表中
+    if (pool.poolSize() > 0) {	// 线程池内的线程启动，poolSize就是nThreads（FixedThreadPool）或者initialSize（CachedThreadPool）的值
+        task = bindToGroup(task);	// 将当前异步通道组实例绑定到线程本地变量表中，后续在处理异步IO完成事件的就是通过是否绑定来决定任务该不该扔线程池来处理的
         try {
-            // 根据线程池大小启动池内线程
+            // 根据线程池初始大小启动池内线程
             // poolSize()在固定大小线程池中即为固定的线程数值，在无界线程池中即为初始化线程数
             for (int i=0; i<pool.poolSize(); i++) {
                 pool.executor().execute(task);

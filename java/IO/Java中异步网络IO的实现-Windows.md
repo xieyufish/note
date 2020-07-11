@@ -1735,3 +1735,20 @@ static <V,A> void invokeDirect(GroupAndInvokeCount myGroupAndInvokeCount,
 }
 ```
 
+## 三、补充
+
+上面在介绍**WindowsAsynchronousServerSocketChannelImpl**的时候呢，我画了一个图对异步Accept操作的整个流程进行了介绍。但后续思考的时候，发现这个图有些许小问题，其实呢，根据Iocp维护的线程池的类型更细节的表现会有些许差距，下面我就分别针对两种线程池类型都做了一个图以进行区别，分别如下：
+
+### 1. FixedThreadPool型
+
+![image-20200711160031861](images/image-20200711160031861.png)
+
+对于AsynchronousChannelGroup绑定的线程池是FixedThreadPool类型（即通过`AsynchronousChannelProvider.openAsynchronousChannelGroup(int nThreads, ThreadFactory threadFactory)`方法创建的通道组实例）的通道组实例，在其启动的时候就会把nThreads个线程start起来，并且这nThreads个线程都会用于监听FIFO队列中的IO完成事件，**当某个线程监听到IO完成事件之后直接在此线程中执行任务**（AcceptTask除外，AcceptTask会扔到iocp中的任务队列然后执行wakeup操作之后，此线程继续去监听IO完成事件），所以在这种类型的通道组中，线程池中的内部任务队列应该是不会有任何任务堆积的；被唤醒的线程会取iocp中的任务队列中的任务执行，执行完成之后继续监听（固定线程池的情况下是一定会取到任务的，因为是一对一的关系，有一个AcceptTask才会入任务队列然后执行一次唤醒操作）。
+
+### 2. CachedThreadPool型
+
+![image-20200711160222940](images/image-20200711160222940.png)
+
+对于AsynchronousChannelGroup绑定的线程池是CachedThreadPool类型（即通过`AsynchronousChannelProvider.openAsynchronousChannelGroup(ExecutorService executor, int initialSize)`方法创建）的通道组实例，在其启动的时候，会创建internalThreadCount+initialSize个线程用于监听FIFO队列中的IO完成事件，其中当internalThread型的线程监听到IO完成事件之后会将IO完成处理任务扔到线程池中去处理，而initialSize型的线程监听到IO完成事件之后直接在此线程中执行任务。
+
+:warning:此种类型的Iocp是没有Iocp中自己的任务队列的，CompletionHandler是扔到线程池中去放在其管理的SynchronousQueue中，有空闲的线程就会从这个队列中取任务执行，或者新建线程从队列中取任务执行。
