@@ -523,4 +523,4 @@ fos.getFD().sync();
 
 可以看到，不管是读还是写；文件内容的流转都经过了两次拷贝之后，才能完成最终的操作，显然这种方式对与读写的效率影响是非常大的；后续我们会看到**FileChannel**对这种拷贝情况的优化。
 
-从**FileInputStream**和**FileOutputStream**的实现来看，我们对每次读写操作的优化工作是无法进行下去的，我们能做的就是尽量的减少读或者是写的次数，所以我们一般会在FileInputStream和FileOutputStream的外面包装一层**BufferedInputStream**和**BufferedOutputStream**，也就是在外面包装一层缓存层，只有在缓存层满了之后才会执行最终的写操作，每次读的时候都是读缓存层大小的内容，而不是单个字节单个字节的读以减少读操作的次数。一般通过Buffered封装减少实际的读写次数（其实就是减少用户空间到内核空间的切换）之后，性能提升在4倍左右。
+从**FileInputStream**和**FileOutputStream**的实现来看，我们对每次读写操作的优化工作是无法进行下去的，我们能做的就是尽量的减少读或者是写的次数，所以我们一般会在FileInputStream和FileOutputStream的外面包装一层**BufferedInputStream**和**BufferedOutputStream**，也就是在外面包装一层缓存层，只有在缓存层满了之后才会执行最终的写操作，每次读的时候都是读缓存层大小的内容，而不是单个字节单个字节的读以减少读操作的次数。一般通过Buffered封装减少实际的写次数（其实就是减少用户空间到内核空间的切换）之后，性能提升在4倍左右；而对于读，如果是直接读盘（开机之后第一次读文件），加Buffered跟不加性能是一样的，而对于之后又文件系统缓冲的情况下，Buffered的性能也能提升在4倍左右。
