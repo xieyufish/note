@@ -1,0 +1,9 @@
+com\xieyu\study\autoconfigure\HornetQAutoConfiguration.class
+com\xieyu\study\autoconfigure\HornetQAutoConfiguration$EmbeddedServerConfiguration.class
+com\xieyu\study\autoconfigure\HornetQNoOpBindingRegistry.class
+com\xieyu\study\autoconfigure\HornetQConfigurationCustomizer.class
+com\xieyu\study\autoconfigure\HornetQProperties.class
+com\xieyu\study\autoconfigure\HornetQMode.class
+com\xieyu\study\autoconfigure\HornetQEmbeddedConfigurationFactory.class
+META-INF\spring-configuration-metadata.json
+com\xieyu\study\autoconfigure\HornetQProperties$Embedded.class

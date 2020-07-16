@@ -1,0 +1,64 @@
+{
+  "groups": [
+    {
+      "name": "hornetq",
+      "type": "com.xieyu.study.autoconfigure.HornetQProperties",
+      "sourceType": "com.xieyu.study.autoconfigure.HornetQProperties"
+    },
+    {
+      "name": "hornetq.embedded",
+      "type": "com.xieyu.study.autoconfigure.HornetQProperties$Embedded",
+      "sourceType": "com.xieyu.study.autoconfigure.HornetQProperties",
+      "sourceMethod": "getEmbedded()"
+    }
+  ],
+  "properties": [
+    {
+      "name": "hornetq.embedded.data-directory",
+      "type": "java.lang.String",
+      "sourceType": "com.xieyu.study.autoconfigure.HornetQProperties$Embedded"
+    },
+    {
+      "name": "hornetq.embedded.enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.xieyu.study.autoconfigure.HornetQProperties$Embedded",
+      "defaultValue": true
+    },
+    {
+      "name": "hornetq.embedded.persistent",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.xieyu.study.autoconfigure.HornetQProperties$Embedded",
+      "defaultValue": false
+    },
+    {
+      "name": "hornetq.embedded.queues",
+      "type": "java.lang.String[]",
+      "sourceType": "com.xieyu.study.autoconfigure.HornetQProperties$Embedded",
+      "defaultValue": []
+    },
+    {
+      "name": "hornetq.embedded.topics",
+      "type": "java.lang.String[]",
+      "sourceType": "com.xieyu.study.autoconfigure.HornetQProperties$Embedded",
+      "defaultValue": []
+    },
+    {
+      "name": "hornetq.host",
+      "type": "java.lang.String",
+      "sourceType": "com.xieyu.study.autoconfigure.HornetQProperties",
+      "defaultValue": "localhost"
+    },
+    {
+      "name": "hornetq.mode",
+      "type": "com.xieyu.study.autoconfigure.HornetQMode",
+      "sourceType": "com.xieyu.study.autoconfigure.HornetQProperties"
+    },
+    {
+      "name": "hornetq.port",
+      "type": "java.lang.Integer",
+      "sourceType": "com.xieyu.study.autoconfigure.HornetQProperties",
+      "defaultValue": 5445
+    }
+  ],
+  "hints": []
+}

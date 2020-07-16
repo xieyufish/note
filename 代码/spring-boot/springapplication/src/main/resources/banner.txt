@@ -1,0 +1,10 @@
+\\     //  \\     //
+ \\   //    \\   //
+  \\ //      \\ //
+${application.version}: 应用的版本，在MANIFEST.MF文件中指定的版本值
+${application.formatted-version}: 应用的版本，在加v和括号，比如(v1.0)
+${spring-boot.version}: springboot的版本
+${spring-boot.formatted-version}: springboot的版本，加v
+${Ansi.NAME}(${AnsiColor.NAME}),${AnsiBackgroud.NAME},${AnsiStyle.NAME}: NAME是在AnsiPropertySource类中指定的值，例如：${AnsiStyle.BOLD}
+${application.title}: 应用名称，在MANIFEST.MF文件中指定的Implementation-Title值
+

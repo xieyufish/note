@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="rabbitmq" />
+        <module name="fast-start" />
+        <module name="springapplication" />
+        <module name="configuration" />
+        <module name="start" />
+      </profile>
+    </annotationProcessing>
+    <bytecodeTargetLevel target="8">
+      <module name="configuration" target="1.8" />
+      <module name="fast-start" target="1.8" />
+      <module name="rabbitmq" target="1.8" />
+      <module name="springapplication" target="1.8" />
+      <module name="springboot" target="1.8" />
+      <module name="start" target="1.8" />
+    </bytecodeTargetLevel>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="configuration" options="-parameters" />
+      <module name="fast-start" options="-parameters" />
+      <module name="rabbitmq" options="-parameters" />
+      <module name="springapplication" options="-parameters" />
+      <module name="start" options="-parameters" />
+    </option>
+  </component>
+</project>
