@@ -2,13 +2,13 @@
 
 我相信大家应该都用过或者是见过用**ByteBuffer**这个类来申请一个字节缓存用于存放字节数据，尤其是有关于IO操作的应用中这个的使用尤其常见；但是，我也相信大部分同学跟我一样对这个类也是在见过的层面。所以，本篇文章主要就是介绍Java中**Buffer**核心概念及其家族成员**ByteBuffer**（其它类型跟**ByteBuffer**的结构和用法是一样的，区别在于存储的内容是其他的数据类型）。
 
-![image-20200714142025868](E:\study\资料文档\笔记\java源码\images\image-20200714142025868.png)
+![image-20200716234325096](images/image-20200716234325096.png)
 
 ## 一、从Buffer开始
 
 Java从1.4开始就引入了缓存**Buffer**抽象接口，作为一个限制了大小的容器用于对各种原始数据类型数据的存储，是所有XxxxBuffer的基类。我们可以用下图来表示**Buffer**的基本结构：
 
-![image-20200714151504812](E:\study\资料文档\笔记\java源码\images\image-20200714151504812.png)
+![image-20200716234011405](images/image-20200716234011405.png)
 
 ### 1. 认识关键属性
 
@@ -67,7 +67,7 @@ ByteBuffer是专用于byte数据类型的缓存类抽象实现。这也是我们
 
 其对应的UML类图结构如下：
 
-![image-20200714163850023](E:\study\资料文档\笔记\java源码\images\image-20200714163850023.png)
+![image-20200714163850023](.\images\image-20200714163850023.png)
 
 
 
@@ -421,3 +421,232 @@ Java_java_nio_MappedByteBuffer_force0(JNIEnv *env, jobject obj, jobject fdo,
     }
 }
 ```
+
+## 四、本地直接内存
+
+Java中除了由JVM管理的可自动回收的内存外，还有一块内存是不由JVM管理的，分配和回收都要自己编码实现，我们一般管这块内存叫做**本地直接内存**。
+
+![image-20200715092156969](.\images\image-20200715092156969.png)
+
+JVM启动的时候，限制了应用可用的本地直接内存的大小，默认为64M；我们可以通过启动参数`-XX:MaxDirectMemorySize`来调整可用的本地直接内存大小，单位为字节，设置其为-1，表示不限制。
+
+默认值是通过**VM**类的静态属性设置的，其定义如下：
+
+```java
+private static long directMemory = 64 * 1024 * 1024; // 单位字节
+
+public static long maxDirectMemory() {
+    return directMemory;
+}
+```
+
+我们new出来的对象都是由JVM管理，自动分配和回收的内存；那么在我们的Java程序中应该如何使用本地直接内存呢？有两种方式可以分配本地直接内存，如下：
+
+1. 通过反射的方式利用***sun.misc.Unsafe***类中提供的本地方法，我们可以编码分配和回收一块本地直接内存，但是请注意通过这种方式分配的本地直接内存是不受`MaxDirectMemorySize`限制的，只有底层系统来决定是否可分配。但是呢，这种方式是不推荐直接在应用程序中使用的，因为不安全。
+2. 通过***sun.nio.ch.DirectBuffer***接口我们可以使用本地直接内存，我们一般通过它在*java.nio*包中的实现类**DirectXxxBuffer**来使用，其中Xxx可替换为Byte、Long等各种基本数据类型，而其中我们最常用的一个实现类便是**DirectByteBuffer**；这也是Java中推荐的对本地直接内存使用的方式，通过这种方式使用本地直接内存是会受到`MaxDirectMemorySize`监控的。
+
+下面我们介绍一下在**DirectByteBuffer**中是如何操作本地直接内存的。
+
+### 1. 分配
+
+从上面介绍**MappedByteBuffer**时，我们知道**DirectByteBuffer**继承自**MappedByteBuffer**，同时我们也知道**DirectByteBuffer**只能通过**ByteBuffer.allocateDirect()**的方法来创建，其实现如下：
+
+```java
+/**
+ * ByteBuffer.java
+ */
+public static ByteBuffer allocateDirect(int capacity) {
+    return new DirectByteBuffer(capacity);
+}
+
+/**
+ * DirectByteBuffer.java
+ * 其所有的构造方法都是包访问域的，也就是说在外面不能直接new，只能通过上面的方式来创建
+ */
+DirectByteBuffer(int cap) {
+
+    super(-1, 0, cap, cap); 	// 调用父类Buffer的构造方法，初始化mark、position、limit和capacity
+    
+    // 用于确定分配的本地内存块首址是否要跟内存页首地址对齐，从1.7开始就不再对齐了
+    // 启动参数-XX:+PageAlignDirectMemory也不再支持了
+    boolean pa = VM.isDirectMemoryPageAligned();
+    int ps = Bits.pageSize();	// 获取内存页的大小，一般是4kb
+    // 获取实际分配的内存块大小，对于需要内存对齐的会多分配一个内存页的大小
+    long size = Math.max(1L, (long)cap + (pa ? ps : 0));
+    
+    // 保存此次分配的本地直接内存大小值，用于控制不要超过MaxDirectMemory的限制
+    // 这里保存的值是真正需要的cap，而不是size，这也就意味着在pa=true的情况下，
+    // 实际分配的本地内存比MaxDirectMemory的限制是要大很多的
+    // 如果分配的本地内存超过了限制，会抛出OutOfMemoryError
+    Bits.reserveMemory(size, cap);
+
+    long base = 0;
+    try {
+        // 分配进程虚拟内存空间（使用的时候才会映射到物理内存），并返回分配的内存块的首址
+        base = unsafe.allocateMemory(size);
+    } catch (OutOfMemoryError x) {
+        // 分配失败，回收（减cap操作）
+        Bits.unreserveMemory(size, cap);
+        throw x;
+    }
+    unsafe.setMemory(base, size, (byte) 0); // 初始化内存块的值为0，这一步会将内存映射到物理内存
+    if (pa && (base % ps != 0)) {
+        // 如果是需要内存页对齐的，我们需要对返回的base首址进行处理，让address指向内存页的首地址
+        address = base + ps - (base & (ps - 1));
+    } else {
+        // 不需要内存页对齐的，我们直接让address指向返回的首址就可以
+        address = base;
+    }
+    // 设置本地直接内存的回收机制
+    // 在Cleaner回收的时候，会执行Deallocator回收器任务
+    // 在构造Deallocator时保存了分配的内存块的首地址、大小和实际用到的容量cap
+    // 注意这里不用存address，因为address是我们实际使用时要的地址，而回收内存时我们需要分配时返回的地址
+    cleaner = Cleaner.create(this, new Deallocator(base, size, cap));
+    att = null;
+}
+```
+
+从实现我们可以看到，DirectByteBuffer本质也还是通过Unsafe来操作的本地直接内存，只不过在分配之前，我们加了一个***Bit.reserveMemory()***方法来控制分配的大小而已；那现在我们看一下***Bits.reserveMemory()***这个方法是如何来控制对本地内存使用的吧。
+
+```java
+static void reserveMemory(long size, int cap) {
+    synchronized (Bits.class) {
+        if (!memoryLimitSet && VM.isBooted()) {
+            maxMemory = VM.maxDirectMemory();	// 设置本地内存最大使用量限制值，只会设置一次
+            memoryLimitSet = true;
+        }
+
+        // totalCapacity：记录的是当前已经被分配的本地内存总量
+        // maxMemory-totalCapacity：表示可分配本地内存的大小
+        // cap：此次分配的本地内存大小
+        if (cap <= maxMemory - totalCapacity) {
+            // 如果此次申请分配的比可分配的小，说明可以分配
+            // 我们将相关值增加
+            reservedMemory += size;
+            totalCapacity += cap;
+            count++;
+            return;
+        }
+    }
+
+    // 到了这里，说明可分配本地内存不足，我们触发一次gc操作
+    // 此次gc会回收相关的Cleaner实例，从而会触发本地内存的回收
+    System.gc();
+    try {
+        // gc执行之后，我们睡眠等待100ms，等待相关的回收操作结束
+        // 这里在后续的jdk版本中有优化，会控制sleep的次数（9次），每次sleep的时间为（1,2,4,……,256ms）
+        // 总共耗时0.5s左右，每次sleep结束就会判断一下可用本地直接内存是否够用，够用就会结束sleep
+        // 如果9次之后还是不够用，再抛出异常。
+        Thread.sleep(100);
+    } catch (InterruptedException x) {
+        Thread.currentThread().interrupt();
+    }
+    synchronized (Bits.class) {
+        // gc之后再次判断可用本地直接内存是否足够，不够我们就抛出内存溢出错误
+        // 否则表示允许此次分配
+        if (totalCapacity + cap > maxMemory)
+            throw new OutOfMemoryError("Direct buffer memory");
+        reservedMemory += size;
+        totalCapacity += cap;
+        count++;
+    }
+
+}
+```
+
+### 2. 回收
+
+本地直接内存使用的回收其实质也是通过**Unsafe.freeMemory()**来实现的，因为我们不推荐在应用程序中直接使用**Unsafe**，所以我们现在的关注点是在**DirectByteBuffer**中什么时机会调用freeMemory方法来回收分配出去的本地内存。
+
+在DirectByteBuffer的构造方法中，我们有创建一个**Cleaner**实例保存在cleaner属性中，其继承自**PhantomReference**类，表示有Cleaner维护的这个实例在没有强引用的时候会被回收掉。在被回收时，会执行***Cleaner.clean()***方法，我们可以看一下它的实现：
+
+```java
+public void clean() {
+    if (!remove(this))	// 将当前实例从Cleaner实例的双向列表中移除
+        return;
+    try {
+        // 移除成功之后，调用thunk的run方法
+        // 那么thunk是什么呢？是通过构造方法传入进来的Runnable实例，通过静态方法create传入进来
+        // 对应到DirectByteBuffer，就是Deallocator这个类
+        thunk.run();
+    } catch (final Throwable x) {
+        AccessController.doPrivileged(new PrivilegedAction<Void>() {
+            public Void run() {
+                if (System.err != null)
+                    new Error("Cleaner terminated abnormally", x)
+                    .printStackTrace();
+                System.exit(1);
+                return null;
+            }});
+    }
+}
+// DirectByteBuffer中就是调用的这个方法创建的Cleaner实例
+public static Cleaner create(Object ob, Runnable thunk) {
+    if (thunk == null)
+        return null;
+    return add(new Cleaner(ob, thunk));
+}
+```
+
+我们看一下**Deallocator**这个类做了什么吧？
+
+```java
+private static class Deallocator
+        implements Runnable
+{
+
+    // 获取Unsafe实例，是个单例
+    private static Unsafe unsafe = Unsafe.getUnsafe();
+
+    private long address;
+    private long size;
+    private int capacity;
+
+    // 构造方法，保存分配内存块的首地址、大小和DirectByteBuffer实际使用的大小
+    private Deallocator(long address, long size, int capacity) {
+        assert (address != 0);
+        this.address = address;
+        this.size = size;
+        this.capacity = capacity;
+    }
+
+    // 在Cleaner的clean方法中调用
+    public void run() {
+        if (address == 0) {
+            // 非法地址，不用处理
+            return;
+        }
+        // 通过freeMemory回收本地直接内存
+        unsafe.freeMemory(address);
+        address = 0; // 清除地址
+        Bits.unreserveMemory(size, capacity); // 将可用容量增大
+    }
+}
+```
+
+通过Cleaner回收内存之后，我们也还是要通过**Bits.unreserveMemeory()**方法来将可用的本地直接内存恢复，以便下次分配的时候可以分配成功，我们看一下这个方法的实现：
+
+```java
+static synchronized void unreserveMemory(long size, int cap) {
+    if (reservedMemory > 0) {
+        reservedMemory -= size;
+        totalCapacity -= cap;	// 已经分配的本地内存总量减值
+        count--;
+        assert (reservedMemory > -1);
+    }
+}
+```
+
+在**DirectByteBuffer**中还有很多其他操作这个本地缓存的方法，比如我们在介绍**ByteBuffer**的时候说的put、get等抽象方法，在DirectByteBuffer中都有对应的实现，其实现也都是通过**Unsafe**来直接控制对内存位置的读写来实现的，相关源代码理解起来也很容易，这里就不再赘述了，敢兴趣的可以翻翻源码了解。**ByteBuffer**还有一个实现类**HeapByteBuffer**，其内部实质就是对一个字节数组的操作，本文也不会再多讲。
+
+在整个Buffer系列中，还有一种只读缓存类型，都是XxxBufferR这种以R结尾的命名方式表示的就是只读，意味着所有的put方法都不支持，只支持get方法。put方法会返回只读异常。
+
+## 五、使用场景
+
+在Java中，Buffer系相关类的使用场景其实都几种在NIO的相关使用场景中。在NIO中提供的相关接口一般是以**ByteBuffer**作为约束，但是建议我们在真实传参时，应该传**DirectByteBuffer**类型，这可以有效的减少在Java进程内部的拷贝次数，用下面几个图来描述一下他们之间的区别：
+
+![image-20200715142624719](.\images\image-20200715142624719.png)
+
+![image-20200715142748570](.\images\image-20200715142748570.png)
+
+![image-20200715142849655](.\images\image-20200715142849655.png)
