@@ -1,4 +1,4 @@
-Java中的文件IO之FileChannel
+# Java中的文件IO之FileChannel
 
 在上一篇文章中，我们对第一代流式文件读写的方式进行了介绍。本文将介绍Java中提供的第二代文件读写实现方式-**FileChannel**。
 

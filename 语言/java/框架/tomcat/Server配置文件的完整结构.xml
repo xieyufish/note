@@ -1,0 +1,65 @@
+<Server port="" shutdown="" [className=""] [address=""]>
+
+	<Listener className="" [...]/>
+
+	<!-- 全局JNI资源配置 -->
+	<GlobalNamingResources>
+		<Ejb/>
+		<Environment/>
+		<LocalEjb/>
+		<Resource/>
+		<ResourceEnvRef/>
+		<ServiceRef/>
+		<Transaction/>
+	</GlobalNamingResources>
+	
+	<Service name="" [className=""]>
+		<!-- 可多个 -->
+		<Listener className=""/>
+		<!-- 可多个 -->
+		<Executor name="" [className=""] [threadPriority="NORM_PRIORITY"] 
+		[daemon="true"] [maxThreads=""] [minSpareThreads=""] [maxIdleTime=""] [maxQueueSize=""] [prestartminSpareThreads=""] [threadRenewalDelay=""]/>
+	
+		<!-- 可多个Connector -->
+		<Connector port="" protocol="" [...]/>
+		
+		<!-- 有且只能是Engine容器 -->
+		<Engine name="" defaultHost="" [backgroudProcessorDelay=""] [className=""] [jvmRoute=""] [startStopThreads=""]>
+			<Alias/>
+			<Realm/> 	<!-- 最多一个 -->
+			<Valve/> 	<!-- 可多个 -->
+			<Listener/>	<!-- 可多个 -->
+			<Cluster/>	<!-- 最多一个 -->
+			<Host name="" appBase="" [...]>		<!-- 可多个 -->
+				<Realm/>	<!-- 最多一个 -->
+				<Valve/>	<!-- 可多个 -->
+				<Alias/>
+				<Cluster/>	<!-- 最多一个 -->
+				<Listener/>	<!-- 可多个 -->
+				<Context>	<!-- 可多个 -->
+					<Listener/>
+					<CookieProcessor/>
+					<Loader/>
+					<Manager>
+						<Store/>
+						<SessionIdGenerator/>
+					</Manager>
+					<Parameter/>
+					<Realm/>
+					<Resources>
+						<PreResources/>
+						<JarResources/>
+						<PostResources/>
+					</Resources>
+					<ResourceLink/>
+					<Valve/>
+					<WatchedResouce/>
+					<WrapperLifecycle/>
+					<JarScanner>
+						<JarScanFilter/>
+					</JarScanner>
+				</Context>
+			</Host>
+		</Engine>
+	</Service>
+</Server>
