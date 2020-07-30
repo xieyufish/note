@@ -204,7 +204,7 @@ public SocketState service(SocketWrapperBase<?> socketWrapper)
                     // 并退出循环
                     // 退出循环之后，会判断readComplete和openSocket状态，会继续注册一个读事件到poller上
                     // 注意此时，在ConnectionHandler处理器中不会把连接与Processor的绑定关系解除，意味着下次有待读数据时依然是这个Processor实例来处理
-                  	// 这里其实就是tomcat中对拆包的处理方式
+                  	// 且读到inputBuffer中的内容也不会被清空，会跟下次读的内容整合在一起
                     break;
                 }
             }
@@ -365,31 +365,45 @@ public SocketState service(SocketWrapperBase<?> socketWrapper)
 
         rp.setStage(org.apache.coyote.Constants.STAGE_KEEPALIVE); // 进入KEEPALIVE阶段
 
-        sendfileState = processSendfile(socketWrapper);	// 文件发送处理
+        // 方法内部设置openSocket=keepAlive的值，并判断是否需要文件发送处理
+        sendfileState = processSendfile(socketWrapper);
     }	
     // 结束循环，这个循环退出的条件在于处理完第一个Http请求之后，
     // 去读取同一个连接的下一次http请求时读取不到数据或者是读取的不全就会退出循环；
     // 还有就是异常情况下会退出循环
 
-    rp.setStage(org.apache.coyote.Constants.STAGE_ENDED);
+    rp.setStage(org.apache.coyote.Constants.STAGE_ENDED);	// 设置请求处理完成
 
     if (getErrorState().isError() || (endpoint.isPaused() && !isAsync())) {
+        // 请求处理出现错误了，或者是endpoint暂停服务了，则需要关闭当前的tcp连接
         return SocketState.CLOSED;
     } else if (isAsync()) {
+        // 异步请求，返回LONG状态值
         return SocketState.LONG;
     } else if (isUpgrade()) {
+        // 如果是协议升级协商，返回UPGRADING状态
         return SocketState.UPGRADING;
     } else {
+        // 其他情况
         if (sendfileState == SendfileState.PENDING) {
+            // 正在发送文件中的状态
             return SocketState.SENDFILE;
         } else {
             if (openSocket) {
+                // 需要继续开启这个tcp连接
                 if (readComplete) {
+                    // 一个完整的http请求处理完毕，则继续OPEN
+                    // 在连接处理器中会解除掉当前连接与Processor的绑定关系
                     return SocketState.OPEN;
                 } else {
+                    // 只读了一个Http请求的部分数据，则需要继续读下一个tcp包
+                    // 在连接处理器中不会解除当前连接与Processor的绑定关系，
+                    // 这样下一个tcp数据包来的时候还是由这个Processor处理，之前读取的数据依然
+                    // 还在这个Processor的inputBuffer中
                     return SocketState.LONG;
                 }
             } else {
+                // 否则，关闭这个tcp连接
                 return SocketState.CLOSED;
             }
         }
@@ -397,3 +411,68 @@ public SocketState service(SocketWrapperBase<?> socketWrapper)
 }
 ```
 
+由上述分析可知**Processor**主要负责处理的工作如下：
+
+1. 解析Http请求协议的请求行信息保存到*coyote*包下的**Request**的相关属性中；
+2. 解析Http请求协议的原始请求头信息保存到**Request**的*mimeHeaders*属性中，某些特殊请求头信息也会预处理到相关属性中；
+3. 请求体的解析不在Processor中处理；
+4. 负责协议升级协商的处理；
+5. 调用容器层面来完成请求对应的具体业务逻辑实现，及捕捉异常处理；
+6. 控制tcp连接的下一步走向：关闭、继续read等等操作；
+7. dispatch的处理（在上面分析还没看出dispatch产生的源头，及作用是什么，看后续吧）。
+
+## 三、配置参数
+
+>maxKeepAliveRequests
+
+控制单个TCP连接上所允许发送的最大Http请求数；默认值：100，-1表示无限制，1表示禁止http协议的keep-alive特性。
+
+> disableUploadTimeout
+
+用于控制在读取http协议中的请求体数据时（注意只是请求体数据），是否有超时时间限制，默认值为：false，即表示有超时时间限制，需要跟*connectionUploadTimeout*参数配合
+
+> connectionUploadTimeout
+
+表示读取http协议中请求体数据时的超时时间限制，及需要在connectionUploadTimeout毫秒内读取完一个Http请求的请求体中的所有数据；默认值为300000ms（5分钟）；跟*disableUploadTimeout*参数配合使用，只有在*disableUploadTimeout=false*时，此参数值才有意义。
+
+> keepAliveTimeout
+
+控制在上一次请求数据发送完毕之后，读取下一次请求数据之间的超时时间。意思是说，如果客户端与服务器的某个TCP连接，如果在其上发送了一次请求之后，等待了keepAliveTimeout时间之后没有发送第二次请求就会把这个TCP连接关闭。keepAliveTimeout没有设置默认值，如果为空会自动去取*connectionTimeout*这个参数的值（默认为20000ms）。
+
+> connectionTimeout
+
+控制的是在建立TCP连接之后，多少时间范围内没有发送数据则认为是连接超时，默认值为20000ms。与*socket.soTimeout*控制参数值一样的作用。
+
+> restrictedUserAgents
+
+一个java正则表达式，用于限制http请求头*user-agent*的值。默认值为空字符串。不重要的参数。
+
+> maxSavePostSize
+
+在用POST请求方式进行FORM和CLIENT-CERT方式的Http认证的时候，容器用于保存post数据的最大缓存空间。不重要，使用默认参数即可。
+
+其他可控参数都不太重要，这里不再赘述了。
+
+## 四、浏览器与Tomcat交互流程
+
+![image-20200730224454729](images/image-20200730224454729.png)
+
+
+
+上图描述的是浏览器与Tomcat服务器建立了一条TCP连接之后，在这条连接之上进行Http请求的过程：
+
+1. 通过这一条TCP连接发送的Http请求必须排队，等前一个Http请求的响应返回之后才会继续发送第二个Http请求；
+2. Tomcat处理完一个Http请求，发送了这个请求的响应，不会马上再次去更新Selector选择器上的IO事件；而是先尝试以非阻塞方式继续读取这个TCP连接，看是否有数据，如果有数据则继续进行Http解析，并继续处理这个Http请求；如果没有数据，才会去Selector上继续更新一个新的读IO事件，等待下一次select操作时的读IO就绪事件处理下一次Http请求。而在有数据的情况下，又分为Http请求数据是否完整的情况，这个情况在上面的代码分析中都有，不明白的可以仔细看一看哦。不完整情况的处理其实就是针对拆包的解决方案。
+3. 上图画的是浏览器与tomcat之间建立一条TCP连接的情况，多条连接时，就相当于是多个TCP连接并行了。像Chrome浏览器中针对同一个host最大允许建立六个TCP连接。
+
+## 五、TCP连接关闭
+
+总结一下Tomcat主动关闭一个TCP连接的情况：
+
+1. 超时
+   - 连接超时：连接建立成功之后，在connectionTimeout（默认20s）时间内没有发送数据。
+   - 读超时：在发送完一次请求之后，在keepAliveTimeout（默认取connectionTimeout值）时间内没有再次发送数据。
+   - 数据上传超时：在一次http请求中，读取http请求体数据没有在connectionUploadTimeout（默认5分钟）时间内读完或者是发送完。
+2. 业务层面的未捕捉异常：会造成500响应码，同时关闭这个TCP连接；
+3. 同一个TCP连接上发送的Http请求数超过了maxKeepAliveRequests数（默认100）；
+4. 其他IO异常和违反了Http协议约束的异常。

@@ -2,7 +2,7 @@
 
 在上文介绍**Poller**组件的时候，我们知道由Poller负责通过Selector选择器select出已经就绪io事件之后，会通过***processKey(selectionKey)***方法来处理发生了io事件的selectionKey，最终会通过***processSocket()***方法来封装相关属性到**SocketProcessor**中，然后将SocketProcessor扔到线程池或者是直接在当前线程中执行，图示如下：
 
-![image-20200729231359990](images/image-20200729231359990.png)
+![image-20200724151029292](images\image-20200729231359990.png)
 
 所以，后续的处理流程完全是由**SocketProcessor**这个任务来完成。
 
@@ -351,9 +351,9 @@ public SocketState process(SocketWrapperBase<S> wrapper, SocketEvent status) {
 
 ## 三、处理流程
 
-![image-20200729231501163](images/image-20200729231501163.png)
+![image-20200728165420014](images\image-20200729231501163.png)
 
-SocketProcessor在处理具体请求的时候，首先需要获取到封装这个TCP连接实例（NioSocketWrapper实例）的监视器锁才能继续处理请求；这就意味着说，同一个TCP连接上，客户端应用层是可以连续发送多个应用请求包的（即可以发送多个Http请求，当然是否可以发送多个要看使用的工具是否有限制），但是在Tomcat中是无法并行处理这通一个连接上的多个请求的，只能是阻塞处理。如果需要同一个TCP连接上支持HTTP并发，HTTP/2版本了解一下。
+SocketProcessor在处理具体请求的时候，首先需要获取到封装这个TCP连接实例（NioSocketWrapper实例）的监视器锁才能继续处理请求；这就意味着说，同一个TCP连接上，客户端应用层是可以连续发送多个应用请求包的（即可以发送多个Http请求，当然是否可以发送多个要看使用的工具是否有限制），但是在Tomcat中是无法并行处理这同一个连接上的多个请求的，只能是阻塞排队处理。如果需要同一个TCP连接上支持HTTP并发，HTTP/2版本了解一下。
 
 另外也需要注意，在Tomcat中也维护了一个Processor实例池，在每次处理请求时也是先从这个池中拿，没有才会去创建一个新的实例；这个Processor池的大小可以通过<Connector>元素的属性***processorCache***来控制，注意这个实例池跟在**Acceptor**中的processorCache实例池是不一样的哦。
 
