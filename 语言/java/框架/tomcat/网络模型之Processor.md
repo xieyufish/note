@@ -279,6 +279,7 @@ public SocketState service(SocketWrapperBase<?> socketWrapper)
                 // 处理http请求中的各请求头的值，设置到request对象的指定属性中
                 // 包括：根据Connection请求头的值是否为keep-alive来设置keepAlive变量的值
                 // 处理Content-Length；Transfer-Encoding处理等
+                // 根据Content-Length的情况来配置激活的InputFilter
                 prepareRequest();
             } catch (Throwable t) {
                 // 出现异常，设置响应状态，以及错误状态
@@ -335,7 +336,7 @@ public SocketState service(SocketWrapperBase<?> socketWrapper)
         // 进入请求处理完成阶段
         rp.setStage(org.apache.coyote.Constants.STAGE_ENDINPUT);
         if (!isAsync()) {
-            // 非异步请求，由当前线程负责结束这个http请求
+            // 非异步请求，由当前线程负责结束这个http请求，包括清理在socket缓存区没有读完的请求体数据
             // 如果是异步请求，在请求处理完成的时候，AsyncContext异步请求上下文实例会负责调用endRequest()
             endRequest();
         }
@@ -455,7 +456,7 @@ public SocketState service(SocketWrapperBase<?> socketWrapper)
 
 ## 四、浏览器与Tomcat交互流程
 
-![image-20200730224454729](images/image-20200730224454729.png)
+![image-20200730155259487](\images\image-20200730224454729.png)
 
 
 
