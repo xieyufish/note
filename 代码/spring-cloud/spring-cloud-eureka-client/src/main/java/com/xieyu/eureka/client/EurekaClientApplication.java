@@ -2,7 +2,7 @@ package com.xieyu.eureka.client;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.netflix.eureka.EnableEurekaClient;
 
 /**
  * <b>类作用描述：</b>
@@ -16,7 +16,7 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
  * <b>当前版本：</b>	1.0.0 <br>
  * <b>参考：</b>		
  */
-@EnableDiscoveryClient
+@EnableEurekaClient
 @SpringBootApplication
 public class EurekaClientApplication {
 	

@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>1.5.4.RELEASE</version>
+		<version>2.1.5.RELEASE</version>
 		<relativePath />
 	</parent>
 	<groupId>com.xieyu</groupId>
@@ -15,14 +15,14 @@
 	<modules>
 		<module>spring-cloud-eureka-server</module>
 		<module>spring-cloud-eureka-client</module>
-		<module>spring-cloud-consul-client</module>
+		<!--<module>spring-cloud-consul-client</module>
 		<module>spring-cloud-zookeeper-client</module>
 		<module>spring-cloud-eureka-consumer</module>
 		<module>spring-cloud-eureka-consumer-ribbon</module>
 		<module>spring-cloud-eureka-consumer-feign</module>
 		<module>spring-cloud-config-server-git</module>
-		<module>spring-cloud-config-client</module>
-		<module>spring-cloud-eureka-consumer-ribbon-hystrix</module>
+		<module>spring-cloud-config-client</module>-->
+		<!--<module>spring-cloud-eureka-consumer-ribbon-hystrix</module>
 		<module>hystrix-dashboard</module>
 		<module>spring-cloud-stream-hello</module>
 		<module>spring-cloud-stream-consumer-group</module>
@@ -32,7 +32,7 @@
     <module>zipkin-server</module>
 		<module>turbine-dashboard</module>
 		<module>api-gateway</module>
-		<module>api-gateway-filter</module>
+		<module>api-gateway-filter</module>-->
 	</modules>
 
 	<properties>
@@ -46,13 +46,13 @@
 			<dependency>
 				<groupId>org.springframework.cloud</groupId>
 				<artifactId>spring-cloud-dependencies</artifactId>
-				<version>Dalston.SR1</version>
+				<version>Greenwich.SR1</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
-	
+
 	<build>
 		<plugins>
 			<plugin>
