@@ -201,7 +201,7 @@ e.查看集群节点状态信息：$hadoop_home/bin/hdfs dfsadmin -report
 
 ### 3. HDFS架构
 
- ![hdfs_14](images\hdfs_14.png)
+ ![hdfs_14](images/hdfs_14.png)
 
 ​    HDFS集群采用Master/Slaver架构，由一个管理节点NameNode(在新的Federation的架构中，可以同时支持多个NameNode存在)和多个数据节点DataNode组成。NameNode节点上存储整个HDFS文件系统中的文件信息；包括文件属性、数据所在节点信息、文件结构等等；文件内容数据按照设定的大小分成若干个文件数据块存放在DataNode节点之上。
 
