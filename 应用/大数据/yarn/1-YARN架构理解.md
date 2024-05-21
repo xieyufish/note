@@ -8,7 +8,7 @@ Hadoop YARN又名MapReduce NextGen和MRv2。YARN的基本思想是把**集群资
 
 YARN的架构用图表述如下： 
 
-![yarn_1](images\yarn_1.gif)
+![yarn_1](images/yarn_1.gif)
 
 ResourceManager有两个主要组件：**Scheduler**和**ApplicationManager**。
 
